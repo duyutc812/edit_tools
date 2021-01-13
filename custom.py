@@ -524,15 +524,16 @@ class LeCartCustom(LeBasecart):
 	def convert_product_export(self, product, products_ext):
 		products_ext_data = products_ext['data']
 		product_description_id = get_row_from_list_by_field(products_ext_data['products_description'], 'products_id', product['products_id'])
-		product_categories_id = get_row_from_list_by_field(products_ext_data['products_to_categories'], 'products_id', product['products_id'])
-		category_id = get_row_from_list_by_field(products_ext_data['categories'], 'categories_id', product_categories_id['categories_id'])
-		category_detail = get_row_from_list_by_field(products_ext_data['categories_description'], 'categories_id', category_id['categories_id'])
+		# product_categories_id = get_row_from_list_by_field(products_ext_data['products_to_categories'], 'products_id', product['products_id'])
+		# TODO CHECK CATEGORY_ID
+		# category_id = get_row_from_list_by_field(products_ext_data['categories'], 'categories_id', product_categories_id['categories_id'])
+		# category_detail = get_row_from_list_by_field(products_ext_data['categories_description'], 'categories_id', category_id['categories_id'])
 		language_id = get_row_from_list_by_field(products_ext_data['languages'], 'languages_id', product_description_id['language_id'])
 		product_data = self.construct_product()
 		product_data['id'] = product['products_id']
-		product_data['code'] = product['products_upc_code']
+		product_data['barcode'] = product['products_upc_code']
 		product_data['sku'] = product['products_mpn']
-		product_data['type'] = category_detail['categories_name']
+		# product_data['type'] = category_detail['categories_name']
 		product_data['price'] = product['products_price']
 		product_data['cost'] = product['products_cost']
 		product_data['weight'] = product['products_weight']
