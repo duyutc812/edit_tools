@@ -950,40 +950,44 @@ class LeCartCustom(LeBasecart):
 		if address_books:
 			for address_book in address_books:
 				address_data = self.construct_customer_address()
+				address_data['id'] = address_book['address_book_id']
+				address_data['first_name'] = address_book['entry_firstname']
+				address_data['last_name'] = address_book['entry_lastname']
+				address_data['gender'] = address_book['entry_gender']
+				address_data['address_1'] = get_value_by_key_in_dict(address_book, 'entry_street_address', '')
+				# address_data['address_2'] = get_value_by_key_in_dict(address_book, 'add2', '')
+				address_data['city'] = address_book['entry_city']
+				address_data['postcode'] = address_book['entry_postcode']
+				address_data['telephone'] = customer['customers_telephone']
+				# address_data['company'] = address_book['comp']
+				# address_data['fax'] = customer['bill_fax']
+				country = get_row_from_list_by_field(customers_ext['data']['countries'], 'countries_id', address_book['entry_country_id'])
+				if country:
+					address_data['country']['id'] = country['countries_id']
+					address_data['country']['code'] = country['countries_iso_code_3']
+					address_data['country']['country_code'] = country['countries_iso_code_2']
+					address_data['country']['name'] = country['countries_name']
+				else:
+					address_data['country']['id'] = address_book['entry_country_id']
+				state_id = address_book['entry_zone_id']
+				if state_id:
+					state = get_row_from_list_by_field(customers_ext['data']['zones'], 'zone_id', state_id)
+					if state:
+						address_data['state']['id'] = state['zone_id']
+						address_data['state']['state_code'] = state['zone_code']
+						address_data['state']['name'] = state['zone_name']
+					else:
+						address_data['state']['name'] = state_id
+				else:
+					address_data['state']['name'] = 'AL'
+					# if address_book['address_book_id'] == customer['customers_default_address_id']:
+				address_data['default']['billing'] = True
+				address_data['default']['shipping'] = True
 				if address_book['address_book_id'] == customer['customers_default_address_id']:
-					address_data['id'] = address_book['address_book_id']
-					address_data['first_name'] = address_book['entry_firstname']
-					address_data['last_name'] = address_book['entry_lastname']
-					address_data['gender'] = address_book['entry_gender']
-					address_data['address_1'] = get_value_by_key_in_dict(address_book, 'entry_street_address', '')
-					# address_data['address_2'] = get_value_by_key_in_dict(address_book, 'add2', '')
-					address_data['city'] = address_book['entry_city']
-					address_data['postcode'] = address_book['entry_postcode']
-					address_data['telephone'] = customer['customers_telephone']
-					# address_data['company'] = address_book['comp']
-					# address_data['fax'] = customer['bill_fax']
-					country = get_row_from_list_by_field(customers_ext['data']['countries'], 'countries_id', address_book['entry_country_id'])
-					if country:
-						address_data['country']['id'] = country['countries_id']
-						address_data['country']['code'] = country['countries_iso_code_3']
-						address_data['country']['country_code'] = country['countries_iso_code_2']
-						address_data['country']['name'] = country['countries_name']
-					else:
-						address_data['country']['id'] = address_book['entry_country_id']
-					state_id = address_book['entry_zone_id']
-					if state_id:
-						state = get_row_from_list_by_field(customers_ext['data']['zones'], 'zone_id', state_id)
-						if state:
-							address_data['state']['id'] = state['zone_id']
-							address_data['state']['state_code'] = state['zone_code']
-							address_data['state']['name'] = state['zone_name']
-						else:
-							address_data['state']['name'] = state_id
-					else:
-						address_data['state']['name'] = 'AL'
-					address_data['default']['billing'] = True
-					address_data['default']['shipping'] = True
 					customer_data['address'].append(address_data)
+				else:
+					customer_data['address'].insert(0, address_data)
+
 		return response_success(customer_data)
 
 	def get_customer_id_import(self, convert, customer, customers_ext):
@@ -1040,15 +1044,15 @@ class LeCartCustom(LeBasecart):
 		delivery_state = duplicate_field_value_from_list(orders['data'], 'delivery_state')
 		state_ids = set(bil_state + delivery_state)
 
-		payment_zone = duplicate_field_value_from_list(orders['data'], 'billing_state')
-		shipping_zone = duplicate_field_value_from_list(orders['data'], 'ship_state')
-		# cus_zone = duplicate_field_value_from_list(orders['data'], 'customers_state')
-		state_ids = set(payment_zone + shipping_zone)
+		# payment_zone = duplicate_field_value_from_list(orders['data'], 'billing_state')
+		# shipping_zone = duplicate_field_value_from_list(orders['data'], 'ship_state')
+		# # cus_zone = duplicate_field_value_from_list(orders['data'], 'customers_state')
+		# state_ids = set(payment_zone + shipping_zone)
 		cus_ids = duplicate_field_value_from_list(orders['data'], 'client_customers_id')
 		orders_ext_queries = {
 			'orders_product': {
 				'type': 'select',
-				'query': "SELECT * FROM  _DBPRF_orders_products WHERE orders_products_id IN " + self.list_to_in_condition(order_ids)
+				'query': "SELECT * FROM  _DBPRF_orders_products WHERE orders_id IN " + self.list_to_in_condition(order_ids)
 			},
 			'orders_total': {
 				'type': 'select',
@@ -1104,21 +1108,25 @@ class LeCartCustom(LeBasecart):
 				order_data['tax']['percent'] = to_decimal(ot_tax['value']) / to_decimal(ot_subtotal['value'])
 		# order_data['tax']['title'] = 'Tax'
 		# order_data['tax']['amount'] = get_value_by_key_in_dict(order, 'total_tax', 0.0000)
-		order_data['shipping']['title'] = 'Shipping'
-		order_data['shipping']['amount'] = get_value_by_key_in_dict(order, 'total_ship', 0.0000)
+		if ot_shipping:
+			order_data['shipping']['title'] = ot_shipping['title']
+			order_data['shipping']['amount'] = get_value_by_key_in_dict(ot_shipping, 'value', 0.0000)
 		order_data['discount']['title'] = 'Discount'
 		order_data['discount']['amount'] = 0.0000
-		order_data['total']['title'] = 'Total'
-		order_data['total']['amount'] = get_value_by_key_in_dict(order, 'total', 0.0000)
-		order_data['subtotal']['title'] = 'Total products'
-		order_data['subtotal']['amount'] = get_value_by_key_in_dict(order, 'total', 0.0000)
-		order_data['currency'] = ''
+		if ot_total:
+			order_data['total']['title'] = ot_total['title']
+			order_data['total']['amount'] = get_value_by_key_in_dict(ot_total, 'value', 0.0000)
+		if ot_subtotal:
+			order_data['subtotal']['title'] = ot_subtotal['title']
+			# order_data['subtotal']['amount'] = get_value_by_key_in_dict(ot_subtotal, 'value', 0.0000)
+			order_data['subtotal']['amount'] = 0.0000
+		# order_data['currency'] = ''
 		# order_data['created_at'] = datetime.fromtimestamp(to_int(get_value_by_key_in_dict(order, 'orderdate', 0))).strftime('%Y-%m-%d %H:%M:%S')
 		# order_data['updated_at'] = get_current_time()
 
-		currency = get_row_from_list_by_field(orders_ext['data']['currencies'], 'code', order['currency'])
+		# currency = get_row_from_list_by_field(orders_ext['data']['currencies'], 'code', order['currency'])
 		# order_data['currency'] = currency['currency_value']
-		order_data['currency'] = currency['code']
+		order_data['currency'] = order['currency']
 		order_data['created_at'] = order['date_purchased']
 		order_data['updated_at'] = get_current_time()
 
@@ -1212,6 +1220,23 @@ class LeCartCustom(LeBasecart):
 		# order_payment['title'] = 'Payment'
 		# order_data['payment'] = order_payment
 
+		order_products = get_list_from_list_by_field(orders_ext['data']['orders_product'], 'orders_id', order_data['id'])
+		order_items = list()
+		for order_product in order_products:
+			order_item_subtotal = to_decimal(order_product['products_price']) * to_decimal(order_product['products_quantity'])
+			order_item_tax = to_decimal(order_item_subtotal) * to_decimal(8.250) / 100
+			order_item_total = to_decimal(order_item_subtotal) + to_decimal(order_item_tax)
+			order_item = self.construct_order_item()
+			order_item['subtotal'] = order_item_subtotal
+			order_item['tax_amount'] = order_item_tax
+			order_item['total'] = order_item_total
+			order_item['product']['name'] = order_product['products_name']
+			order_item['qty'] = order_product['products_quantity']
+			# thieu
+			order_item['price'] = order_product['final_price']
+			order_items.append(order_item)
+			order_data['items'] = order_items
+
 		# order_products = get_list_from_list_by_field(orders_ext['data']['order_items'], 'order_id', order['id'])
 		# # order_product_attributes = get_list_from_list_by_field(orders_ext['data']['orders_products_attributes'], 'orders_id', order['orders_id'])
 		# order_items = list()
@@ -1219,8 +1244,8 @@ class LeCartCustom(LeBasecart):
 		# 	order_item_subtotal = to_decimal(order_product['price']) * to_decimal(order_product['quantity'])
 		# 	order_item_tax = to_decimal(order_item_subtotal) * to_decimal(8.250) / 100
 		# 	order_item_total = to_decimal(order_item_subtotal) + to_decimal(order_item_tax)
-		# 	order_item = self.construct_order_item()
-		# 	#order_item = self.addConstructDefault(order_item)
+		# order_item = self.construct_order_item()
+		##order_item = self.addConstructDefault(order_item)
 		# 	order_item['id'] = order_product['line_id']
 		# 	order_item['product']['id'] = order_product['product_id']
 		# 	order_item['product']['name'] = order_product['name']
