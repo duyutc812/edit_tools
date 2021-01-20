@@ -1119,7 +1119,7 @@ class LeCartCustom(LeBasecart):
 		if ot_subtotal:
 			order_data['subtotal']['title'] = ot_subtotal['title']
 			# order_data['subtotal']['amount'] = get_value_by_key_in_dict(ot_subtotal, 'value', 0.0000)
-			order_data['subtotal']['amount'] = get_value_by_key_in_dict(ot_subtotal, 'value', 0.0000)
+			order_data['subtotal']['amount'] = 0.0000
 		# order_data['currency'] = ''
 		# order_data['created_at'] = datetime.fromtimestamp(to_int(get_value_by_key_in_dict(order, 'orderdate', 0))).strftime('%Y-%m-%d %H:%M:%S')
 		# order_data['updated_at'] = get_current_time()
@@ -1230,7 +1230,6 @@ class LeCartCustom(LeBasecart):
 			order_item['subtotal'] = order_item_subtotal
 			order_item['tax_amount'] = order_item_tax
 			order_item['total'] = order_item_total
-			order_item['product']['id'] = order_product['orders_products_id']
 			order_item['product']['name'] = order_product['products_name']
 			order_item['qty'] = order_product['products_quantity']
 			# thieu

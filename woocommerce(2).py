@@ -2247,101 +2247,9 @@ class LeCartWoocommerce(LeCartWordpress):
 	def before_category_import(self, convert, category, categories_ext):
 		return response_success()
 
-	# category import
 	def category_import(self, convert, category, categories_ext):
-		self.log(convert, 'convert_category')
-		terms = {
-			'name': convert['name'],
-			'slug': convert['name'],
-			'term_group': 0
-		}
-		terms_data_query = self.create_insert_query_connector('terms', terms)
-		term_id = self.import_data_connector(terms_data_query, 'category')
-		if term_id:
-			self.insert_map(self.TYPE_CATEGORY, convert['id'], term_id)
-		else:
-			return response_warning('Category ' + to_str(convert['id']) + ' import false.')
 
-		term_taxonomy = {
-			'term_id': term_id,
-			'taxonomy': 'product_cat',
-			'description': convert['description'],
-			'parent': 0,
-			'count': 0,
-		}
-		term_taxonomy_data_query = self.create_insert_query_connector('term_taxonomy', term_taxonomy)
-		self.import_data_connector(term_taxonomy_data_query, 'category')
-
-		category_lookup = {
-			'category_tree_id': term_id,
-			'category_id': term_id,
-		}
-		category_lookup_data_query = self.create_insert_query_connector('wc_category_lookup', category_lookup)
-		self.import_data_connector(category_lookup_data_query, 'category')
-
-		category_image = convert['thumb_image']['path']
-		url_image_target = self._notice['target']['cart_url'] + '/wp-content/uploads/2021/01/' + category_image
-		posts_image = {
-			'post_date': category['date_added'] if category['date_added'] and '0000-00-00' not in category['date_added'] else get_current_time(),
-			'post_date_gmt': category['date_added'] if category['date_added'] and '0000-00-00' not in category['date_added'] else get_current_time(),
-			'post_content': '',
-			'post_title': category_image,
-			'post_excerpt': '',
-			'post_status': 'inherit',
-			'comment_status': 'open',
-			'ping_status': 'closed',
-			'post_name': category_image,
-			'to_ping': '',
-			'pinged': '',
-			'post_modified': category['date_added'] if category['date_added'] and '0000-00-00' not in category['date_added'] else get_current_time(),
-			'post_modified_gmt': category['date_added'] if category['date_added'] and '0000-00-00' not in category['date_added'] else get_current_time(),
-			'post_content_filtered': '',
-			'post_parent': '0',
-			'guid': url_image_target,
-			'post_type': 'attachment',
-			'post_mime_type': 'image/png',
-			'post_author': 1,
-		}
-		posts_image_data_query = self.create_insert_query_connector('posts', posts_image)
-		posts_image_id = self.import_product_data_connector(posts_image_data_query, True, convert['id'])
-
-		termmeta_value = {
-			'order': 0,
-			'display_type': 'products',
-			'thumbnail_id': posts_image_id,
-		}
-		for key, val in termmeta_value.items():
-			termmeta = {
-				'term_id': term_id,
-				'meta_key': key,
-				'meta_value': val,
-			}
-			termmeta_data_query = self.create_insert_query_connector('termmeta', termmeta)
-			self.import_category_data_connector(termmeta_data_query, True, convert['id'])
-
-		postmeta_image = {
-			'_wp_attached_file': '2021/01/' + category_image,
-			'_wp_attachment_metadata': 'a:5:{s:5:"width";i:540;s:6:"height";i:720;s:4:"file";s:60:"2021/01',
-			'_wp_attachment_image_alt': 'alt image',
-		}
-		if posts_image_id:
-			for key, val in postmeta_image.items():
-				post_metaimage = {
-					'post_id': posts_image_id,
-					'meta_key': key,
-					'meta_value': val,
-				}
-				postmeta_data_query = self.create_insert_query_connector('postmeta', post_metaimage)
-				self.import_category_data_connector(postmeta_data_query, True, convert['id'])
-		# if cate_id:
-		# 	for key, values in cate_termmeta_value.items():
-		# 		cate_termmeta['meta_key'] = key
-		# 		cate_termmeta['meta_value'] = values
-		# 		self.import_category_data_connector(self.create_insert_query_connector('termmeta', cate_termmeta), True,
-		# 											convert['id'])
-		# if not cate_id:
-		# 	return response_warning('term ' + to_str(convert['id']) + ' import false.')
-		return response_success(0)
+		return response_success(category_term_import)
 
 	def get_new_trid(self):
 		query = {
@@ -3463,7 +3371,7 @@ class LeCartWoocommerce(LeCartWordpress):
 						all_queries.append(relationship_query)
 						self.insert_map(self.TYPE_MANUFACTURER, convert['manufacturer']['id'], manufacturer_taxonomy_import, convert['manufacturer']['name'])
 
-		if convert['tax'][' id'] or convert['tax']['code']:
+		if convert['tax']['id'] or convert['tax']['code']:
 			tax_class = self.get_map_field_by_src(self.TYPE_TAX, convert['tax']['id'], convert['tax']['code'], 'code_desc')
 			if tax_class:
 				meta_insert = {
@@ -3485,166 +3393,9 @@ class LeCartWoocommerce(LeCartWordpress):
 	def before_product_import(self, convert, product, products_ext):
 		return response_success()
 
-	# product import
 	def product_import(self, convert, product, products_ext):
-		self.log(convert, 'convert_product')
-		posts = {
-			'post_author': 1,
-			'post_date': convert['created_at'],
-			'post_date_gmt': convert['created_at'],
-			'post_content': convert['description'],
-			'post_title': convert['name'],
-			'post_excerpt': convert['short_description'],
-			'post_status': 'publish' if convert['status'] else 'draft',
-			'comment_status': 'open',
-			'ping_status': 'closed',
-			'post_password': '',
-			'post_name': convert['name'],
-			'to_ping': '',
-			'pinged': '',
-			'post_modified': convert['created_at'] if convert['created_at'] and '0000-00-00' not in convert['created_at'] else get_current_time(),
-			'post_modified_gmt': convert['updated_at'] if convert['updated_at'] and '0000-00-00' not in convert['updated_at'] else get_current_time(),
-			'post_content_filtered': '',
-			'post_parent': '',
-			'guid': '',
-			'menu_order': '0',
-			'post_type': 'product',
-		}
-		posts_data_query = self.create_insert_query_connector('posts', posts)
-		post_id = self.import_data_connector(posts_data_query, 'product')
 
-		url = self._notice['target']['cart_url'] + '/?post_type=product&#038;p=' + str(post_id)
-		# create_update_query_connector(self, table, data_set, where, prefix = True):
-		post_data_set = {
-			'guid': url,
-		}
-
-		post_where_id = {
-			'ID': post_id,
-		}
-
-		posts_update_data_query = self.create_update_query_connector('posts', post_data_set, post_where_id)
-		self.import_data_connector(posts_update_data_query, 'product')
-
-		url_image = self._notice['target']['cart_url'] + '/wp-content/uploads/2021/01/'
-		posts_image = {
-			'post_author': 1,
-			'post_date': convert['created_at'],
-			'post_date_gmt': convert['created_at'],
-			'post_content': convert['description'],
-			'post_title': convert['thumb_image']['path'],
-			'post_excerpt': convert['short_description'],
-			'post_status': 'inherit',
-			'comment_status': 'open',
-			'ping_status': 'closed',
-			'post_password': '',
-			'post_name': convert['thumb_image']['path'],
-			'to_ping': '',
-			'pinged': '',
-			'post_modified': convert['created_at'] if convert['created_at'] and '0000-00-00' not in convert['created_at'] else get_current_time(),
-			'post_modified_gmt': convert['updated_at'] if convert['updated_at'] and '0000-00-00' not in convert['updated_at'] else get_current_time(),
-			'post_content_filtered': '',
-			'post_parent': post_id,
-			'guid': url_image + convert['thumb_image']['path'],
-			'menu_order': '0',
-			'post_type': 'attachment',
-			'post_mime_type': 'image/png',
-		}
-
-		posts_image_data_query = self.create_insert_query_connector('posts', posts_image)
-		post_image_id = self.import_data_connector(posts_image_data_query, 'product')
-
-		# image_name = convert['thumb_image']['path']
-		# postmeta_image_value = {
-		# 	'_wp_attached_file': '2021/01/' + image_name,
-		# 	# '_wp_attachment_metadata': 'a:5:{s:5:"width";i:1024;s:6:"height";i:1450;s:4:"file";s:33:"2021/01/' + image_name + '";s:5:"sizes";a:10:{s:6:"medium";a:4:{s:4:"file";s:33:"' + image_name + '";s:5:"width";i:212;s:6:"height";i:300;s:9:"mime-type";s:10:"image/jpeg";}s:5:"large";a:4:{s:4:"file";s:34:"large_1574169398433-2-723x1024.jpg";s:5:"width";i:723;s:6:"height";i:1024;s:9:"mime-type";s:10:"image/jpeg";}s:9:"thumbnail";a:4:{s:4:"file";s:33:"large_1574169398433-2-150x150.jpg";s:5:"width";i:150;s:6:"height";i:150;s:9:"mime-type";s:10:"image/jpeg";}s:12:"medium_large";a:4:{s:4:"file";s:34:"large_1574169398433-2-768x1088.jpg";s:5:"width";i:768;s:6:"height";i:1088;s:9:"mime-type";s:10:"image/jpeg";}s:21:"woocommerce_thumbnail";a:5:{s:4:"file";s:33:"large_1574169398433-2-450x450.jpg";s:5:"width";i:450;s:6:"height";i:450;s:9:"mime-type";s:10:"image/jpeg";s:9:"uncropped";b:0;}s:18:"woocommerce_single";a:4:{s:4:"file";s:33:"large_1574169398433-2-600x850.jpg";s:5:"width";i:600;s:6:"height";i:850;s:9:"mime-type";s:10:"image/jpeg";}s:29:"woocommerce_gallery_thumbnail";a:4:{s:4:"file";s:33:"large_1574169398433-2-100x100.jpg";s:5:"width";i:100;s:6:"height";i:100;s:9:"mime-type";s:10:"image/jpeg";}s:12:"shop_catalog";a:4:{s:4:"file";s:33:"large_1574169398433-2-450x450.jpg";s:5:"width";i:450;s:6:"height";i:450;s:9:"mime-type";s:10:"image/jpeg";}s:11:"shop_single";a:4:{s:4:"file";s:33:"large_1574169398433-2-600x850.jpg";s:5:"width";i:600;s:6:"height";i:850;s:9:"mime-type";s:10:"image/jpeg";}s:14:"shop_thumbnail";a:4:{s:4:"file";s:33:"large_1574169398433-2-100x100.jpg";s:5:"width";i:100;s:6:"height";i:100;s:9:"mime-type";s:10:"image/jpeg";}}s:10:"image_meta";a:12:{s:8:"aperture";s:1:"0";s:6:"credit";s:0:"";s:6:"camera";s:0:"";s:7:"caption";s:0:"";s:17:"created_timestamp";s:1:"0";s:9:"copyright";s:0:"";s:12:"focal_length";s:1:"0";s:3:"iso";s:1:"0";s:13:"shutter_speed";s:1:"0";s:5:"title";s:0:"";s:11:"orientation";s:1:"0";s:8:"keywords";a:0:{}}}',
-		# 	'_wp_attachment_image_alt': 'image_alt',
-		# }
-		# 
-		# if post_image_id:
-		# 	for key, value in postmeta_image_value.items():
-		# 		post_meta_image_kv = {
-		# 			'post_id': post_image_id,
-		# 			'meta_key': key,
-		# 			'meta_value': value,
-		# 		}
-		# 		postmeta_value_query = self.create_insert_query_connector('wp_postmeta', post_meta_image_kv)
-		# 		self.import_data_connector(postmeta_value_query, 'product')
-
-		post_meta_pro_value = {
-			'_thumbnail_id': post_image_id,
-			'_regular_price': product['products_msrp'],
-			'_sale_price': product['products_wholesale_price'],
-			'total_sales': product['products_wholesale_price'],
-			'_tax_status': 'taxable',
-			'_tax_class': None,
-			# '_manage_stock': ,
-			# '_backorders': ,
-			# '_sold_individually': ,
-			# '_virtual': ,
-			# '_downloadable': no,
-			'_download_limit': -1,
-			'_download_expiry': -1,
-			'_stock': None,
-			'_stock_status': 'instock',
-			'_wc_average_rating': 0,
-			'_wc_review_count': 0,
-			'_product_version': '4.9.0',
-			'_price': product['products_wholesale_price'],
-			'_sku': convert['sku'],
-			'_weight': convert['weight'],
-			'_length': convert['length'],
-			'_width': convert['width'],
-			'_height': convert['height'],
-		}
-		for key, value in post_meta_pro_value.items():
-			post_meta_kv = {
-				'post_id': post_id,
-				'meta_key': key,
-				'meta_value': value,
-			}
-			post_meta_data_query = self.create_insert_query_connector('postmeta', post_meta_kv)
-			self.import_data_connector(post_meta_data_query, 'product')
-
-		pro_meta_lookup = {
-			'product_id': post_id,
-			'sku': convert['sku'],
-			'virtual': 0,
-			'downloadable': 0,
-			'min_price': product['products_wholesale_price'],
-			'max_price': product['products_wholesale_price'],
-			'onsale': 1 if product['products_wholesale_price'] < product['products_msrp'] else 0,
-			'stock_quantity': product['products_quantity'],
-			'stock_status': 'instock',
-			'rating_count': 0,
-			'average_rating': 0,
-			'total_sales': 0,
-			'tax_status': 'taxable',
-			'tax_class': '',
-		}
-		pro_meta_lookup_data_query = self.create_insert_query_connector('wc_product_meta_lookup', pro_meta_lookup)
-		self.import_data_connector(pro_meta_lookup_data_query, 'product')
-
-		for cat in convert['categories']:
-			cat_id = cat['id']
-			term_tax_id = self.get_map_field_by_src(self.TYPE_CATEGORY, cat_id, None, self._notice['target']['language_default'])
-			term_relate_value = {
-				'object_id': post_id,
-				'term_taxonomy_id': term_tax_id,
-				'term_order': 0,
-			}
-			term_relate_data_query = self.create_insert_query_connector('term_relationships', term_relate_value)
-			self.import_data_connector(term_relate_data_query, 'product')
-		# list_term_taxonomy_id = list()
-		# pro_to_cat = list(convert['categories'])
-		# for i in pro_to_cat:
-		# 	list_term_taxonomy_id.append(pro_to_cat[i].get('id', None))
-		#
-		if post_id:
-			self.insert_map(self.TYPE_PRODUCT, convert['id'], post_id)
-		else:
-			return response_warning('Product ' + to_str(convert['id']) + ' import false.')
-		return response_success(0)
+		return response_success(product_import)
 
 	def after_product_import(self, product_id, convert, product, products_ext):
 		return response_success()
@@ -3679,7 +3430,7 @@ class LeCartWoocommerce(LeCartWordpress):
 			}
 			type_query = self.create_insert_query_connector('options', type_data)
 			all_queries.append(type_query)
-			url_last_namedata = {
+			url_data = {
 				'option_name': 'LEPP_URL',
 				'option_value': self._notice['src']['cart_url'],
 				'autoload': 'yes'
@@ -3831,7 +3582,7 @@ class LeCartWoocommerce(LeCartWordpress):
 		return response_success(customer_data)
 
 	def get_customer_id_import(self, convert, customer, customers_ext):
-		return customer['customers_id']
+		return customer['ID']
 
 	def check_customer_import(self, convert, customer, customers_ext):
 		return True if self.get_map_field_by_src(self.TYPE_CUSTOMER, convert['id'], convert['code']) else False
@@ -3842,97 +3593,13 @@ class LeCartWoocommerce(LeCartWordpress):
 	def before_customer_import(self, convert, customer, customers_ext):
 		return response_success()
 
-	# customer import
 	def customer_import(self, convert, customer, customers_ext):
-		self.log(convert, 'convert_customer')
-		users = {
-			'user_login': convert['username'],
-			'user_pass': convert['password'],
-			'user_nicename': convert['username'],
-			'user_email': convert['email'],
-			'user_url': convert['user_url'],
-			'user_registered': get_current_time(),
-			'user_activation_key': '',
-			'user_status': 0,
-			'display_name': convert['username'],
-		}
-		customer_data_query = self.create_insert_query_connector('users', users)
-		customer_id = self.import_data_connector(customer_data_query, 'user')
 
-		# if customer_id:
-		# 	self.insert_map(self.TYPE_CUSTOMER, convert['id'], customer_id)
-		# else:
-		# 	return response_warning('Customer ' + to_str(convert['id']) + ' import false.')
-
-		customer_address_default = convert['address'][-1]
-		user_meta_value = {
-			'nickname': convert['username'],
-			'first_name': convert['first_name'],
-			'last_name': convert['last_name'],
-			'description': '',
-			'rich_editing': 'true',
-			'syntax_highlighting': 'true',
-			'comment_shortcuts': 'false',
-			'admin_color': 'fresh',
-			'use_ssl': 0,
-			'show_admin_bar_front': 'true',
-			'locale': '',
-			'wp_capabilities': 'a:1:{s:8:"customer";b:1;}',
-			'wp_user_level': 0,
-			'dismissed_wp_pointers': '',
-			'last_update': get_current_time(),
-			# '_order_count': '',
-			# '_last_order': '',
-			'billing_first_name': convert['first_name'],
-			'billing_last_name': convert['last_name'],
-			'billing_company': customer_address_default['company'],
-			'billing_address_1': customer_address_default['address_1'],
-			'billing_address_2': customer_address_default['address_2'],
-			'billing_city': customer_address_default['city'],
-			'billing_postcode': customer_address_default['postcode'],
-			'billing_country': customer_address_default['country']['country_code'],
-			'billing_state': customer_address_default['state']['state_code'],
-			'billing_phone': convert['phone'],
-			'billing_email': convert['email'],
-			'shipping_first_name': convert['first_name'],
-			'shipping_last_name': convert['last_name'],
-			'shipping_company': customer_address_default['company'],
-			'shipping_address_1': customer_address_default['address_1'],
-			'shipping_address_2': customer_address_default['address_2'],
-			'shipping_city': customer_address_default['city'],
-			'shipping_postcode': customer_address_default['postcode'],
-			'shipping_country': customer_address_default['country']['country_code'],
-			'shipping_state': customer_address_default['state']['state_code'],
-		}
-		if customer_id:
-			for key, value in user_meta_value.items():
-				user_meta = {
-					'user_id': customer_id,
-					'meta_key': key,
-					'meta_value': value,
-				}
-				user_meta_data_query = self.create_insert_query_connector('usermeta', user_meta)
-				self.import_customer_data_connector(user_meta_data_query, True, convert['id'])
-
-		customer_lookup = {
-			'user_id': customer_id,
-			'username': convert['username'],
-			'first_name': convert['first_name'],
-			'last_name': convert['last_name'],
-			'email': convert['email'],
-			'date_last_active': '',
-			'date_registered': convert['created_at'],
-			'country': customer_address_default['country']['name'],
-			'postcode': customer_address_default['postcode'],
-			'city': customer_address_default['city'],
-			'state': customer_address_default['state']['name'],
-		}
-		customer_lookup_query = self.create_insert_query_connector('wc_customer_lookup', customer_lookup)
-		customer_lookup_id = self.import_customer_data_connector(customer_lookup_query, True, 'user')
-		self.insert_map(self.TYPE_CUSTOMER, convert['id'], customer_id, value=customer_lookup_id)
-		return response_success(0)
+		self.insert_map(self.TYPE_CUSTOMER, convert['id'], customer_id, convert['code'])
+		return response_success(customer_id)
 
 	def after_customer_import(self, customer_id, convert, customer, customers_ext):
+
 		return response_success()
 
 	def addition_customer_import(self, convert, customer, customers_ext):
@@ -4342,143 +4009,9 @@ class LeCartWoocommerce(LeCartWordpress):
 	def before_order_import(self, convert, order, orders_ext):
 		return response_success()
 
-	#order import
 	def order_import(self, convert, order, orders_ext):
-		# self.insert_map(self.TYPE_ORDER, convert['id'], order_id, convert['code'])
-		# post_order = {
-		# 	'post_author': 1,
-		# 	'post_date': convert['created_at'] if convert['created_at'] else get_current_time(),
-		# 	'post_date_gmt': convert['created_at'] if convert['created_at'] else get_current_time(),
-		# 	'post_content': '',
-		# 	'post_title': 'Order',
-		# 	'post_excerpt': '',
-		# 	'post_status': 'wc-completed' if convert['status'] == 1 else 'wc-pending',
-		# 	'comment_status': 'closed',
-		# 	'ping_status': 'closed',
-		# 	'post_name': 'order',
-		# 	'to_ping': '',
-		# 	'pinged': '',
-		# 	'post_modified': convert['updated_at'] if convert['updated_at'] else get_current_time(),
-		# 	'post_modified_gmt': convert['updated_at'] if convert['updated_at'] else get_current_time(),
-		# 	'post_content_filtered': '',
-		# 	'post_parent': 0,
-		# 	'guid': '',
-		# 	'menu_order': 0,
-		# 	'post_type': 'shop_order',
-		# 	'comment_count': 0,
-		# }
-		# post_order_data_query = self.create_insert_query_connector('posts', post_order)
-		# post_order_id = self.import_data_connector(post_order_data_query, 'order')
-		# 
-		# post_order_guid = {
-		# 	'guid': self._notice['target']['cart_url'] + '/?post_type=shop_order&#038;p=' + str(post_order_id)
-		# }
-		# post_order_guid_where_id = {
-		# 	'ID': post_order_id,
-		# }
-		# post_order_guid_query = self.create_update_query_connector('posts', post_order_guid, post_order_guid_where_id)
-		# self.import_data_connector(post_order_guid_query, 'order')
-		# 
-		# customer_id = self.get_map_field_by_src(self.TYPE_CUSTOMER, convert['customer']['id'])
-		# customer_billing_address = convert['billing_address']
-		# customer_shipping_address = convert['shipping_address']
-		# 
-		# order_postmeta_value = {
-		# 	'_customer_user': customer_id if not customer_id else '',
-		# 	'_order_currency': convert['currency'],
-		# 	'_order_shipping_tax': '0',
-		# 	'_order_tax': '0',
-		# 	'_order_total': convert['total']['amount'],
-		# 	'_order_version': '4.9.0',
-		# 	'_prices_include_tax': 'no',
-		# 	'_cart_discount': 0,
-		# 	'_cart_discount_tax': 0,
-		# 	'_order_shipping': convert['shipping']['amount'],
-		# 	'_order_key': '',
-		# 	'_transaction_id': '',
-		# 	'_created_via': 'admin',
-		# 	'_billing_last_name': customer_billing_address['last_name'],
-		# 	# '_billing_last_name': billing_address['last_name'],
-		# 	'_billing_company': customer_billing_address['company'],
-		# 	'_billing_address_1': customer_billing_address['address_1'] if customer_billing_address['address_1'] else customer_billing_address['address_2'],
-		# 	'_billing_city': customer_billing_address['city'],
-		# 	'_billing_state': get_value_by_key_in_dict(customer_billing_address['state'], 'state_code', ''),
-		# 	'_billing_country': get_value_by_key_in_dict(customer_billing_address['country'], 'code', ''),
-		# 	'_billing_postcode': customer_billing_address['postcode'],
-		# 	'_billing_phone': customer_billing_address['telephone'],
-		# 	'_billing_email': convert['customer']['email'],
-		# 	# '_billing_address_index': 'index',
-		# 	# '_shipping_address_index': 'index',
-		# 	# '_shipping_first_name': shipping_address['first_name'],
-		# 	'_shipping_last_name': customer_shipping_address['last_name'],
-		# 	'_shipping_company': customer_shipping_address['company'],
-		# 	'_shipping_address_1': customer_shipping_address['address_1'] if customer_shipping_address['address_1'] else customer_shipping_address['address_2'],
-		# 	'_shipping_city': customer_shipping_address['city'],
-		# 	'_shipping_state': get_value_by_key_in_dict(customer_shipping_address['state'], 'state_code', ''),
-		# 	'_shipping_country': get_value_by_key_in_dict(customer_shipping_address['country'], 'code', ''),
-		# 	'_shipping_postcode': customer_shipping_address['postcode'],
-		# }
-		# 
-		# for key, value in order_postmeta_value.items():
-		# 	order_postmeta = {
-		# 		'post_id': post_order_id,
-		# 		'meta_key': key,
-		# 		'meta_value': value,
-		# 	}
-		# 	order_postmeta_data_query = self.create_insert_query_connector('postmeta', order_postmeta)
-		# 	self.import_data_connector(order_postmeta_data_query, 'order')
-		# 
-		# user_id_desc = self.get_map_field_by_src(self.TYPE_CUSTOMER, convert['customer']['id'], field = 'value')
-		# 
-		# wc_order_stats = {
-		# 	'order_id': post_order_id,
-		# 	'parent_id': '0',
-		# 	'date_created': convert['created_at'],
-		# 	'date_created_gmt': convert['created_at'],
-		# 	'num_items_sold': len(convert['items']),
-		# 	'total_sales': convert['total']['amount'],
-		# 	'tax_total': convert['tax']['amount'],
-		# 	'shipping_total': convert['shipping']['amount'],
-		# 	'net_total': convert['subtotal']['amount'],
-		# 	'returning_customer': 0,
-		# 	'status': 'wc-pending',
-		# 	'customer_id': user_id_desc if user_id_desc else 0,
-		# }
-		# meta_query = self.create_insert_query_connector('wc_order_stats', wc_order_stats)
-		# order_stats_id = self.import_data_connector(meta_query, 'order')
-		# 
-		# for pro_order in convert['items']:
-		# 	pro_id = self.get_map_field_by_src(self.TYPE_PRODUCT, pro_order['product']['id'])
-		# 	# if pro_id:
-		# 	user_id_desc = self.get_map_field_by_src(self.TYPE_CUSTOMER, convert['customer']['id'], field = 'value')
-		# 
-		# 	order_product_lookup_data = {
-		# 		'order_id': post_order_id,
-		# 		'product_id': pro_id,
-		# 		'variation_id': '0',
-		# 		'customer_id': user_id_desc if user_id_desc else 0,
-		# 		'date_created': convert['created_at'],
-		# 		'product_qty': pro_order['qty'],
-		# 		'product_net_revenue': pro_order['total'],
-		# 		'product_gross_revenue': pro_order['total'],
-		# 		'coupon_amount': '0',
-		# 		'tax_amount': '0',
-		# 		'shipping_amount': '0',
-		# 		'shipping_tax_amount': '0',
-		# 	}
-		# 	meta_query = self.create_insert_query_connector('wc_order_product_lookup', order_product_lookup_data)
-		# 	# self.import_data_connector(meta_query, 'order')
-		# 	if not self.import_data_connector(meta_query, 'order'):
-		# 		return response_warning('Order(product) ' + to_str(convert['id']) + 'does not exist')
-		# 
-		# 	woo_order_item = {
-		# 		'order_item_name': pro_order['product']['name'],
-		# 		'order_item_type': 'line_item',
-		# 		'order_id': order_stats_id,
-		# 	}
-		# 	woo_order_item_query = self.create_insert_query_connector('woocommerce_order_items', woo_order_item)
-		# 	self.import_data_connector(woo_order_item_query, 'order')
-		return response_success(0)
+		self.insert_map(self.TYPE_ORDER, convert['id'], order_id, convert['code'])
+		return response_success(order_id)
 
 	def after_order_import(self, order_id, convert, order, orders_ext):
 		return response_success()
