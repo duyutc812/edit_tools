@@ -479,15 +479,19 @@ class LeCartCustom(LeBasecart):
 				'type': "select",
 				'query': "SELECT * FROM  _DBPRF_orders_products WHERE orders_products_id IN " + product_id_con,
 			},
+			'products_attribute': {
+				'type': "select",
+				'query': "SELECT * FROM  _DBPRF_product_attribute WHERE product_id IN " + product_id_con,
+			}
 		}
 		product_ext = self.get_connector_data(url_query, {
 			'serialize': True, 'query': json.dumps(product_ext_queries)
 		})
 		if (not product_ext) or product_ext['result'] != 'success':
 			return response_error()
-		categories_ids = duplicate_field_value_from_list(product_ext['data']['products_to_categories'], 'categories_id')
-		categories_ids_con = self.list_to_in_condition(categories_ids)
-		languages_id = self.list_to_in_condition(duplicate_field_value_from_list(product_ext['data']['products_description'], 'language_id'))
+		categories_ids = self.list_to_in_condition(duplicate_field_value_from_list(product_ext['data']['products_to_categories'], 'categories_id'))
+		language_id = self.list_to_in_condition(duplicate_field_value_from_list(product_ext['data']['products_description'], 'language_id'))
+		attribute_id = self.list_to_in_condition(duplicate_field_value_from_list(product_ext['data']['products_attribute'], 'attribute_id'))
 		# product_option_ids = duplicate_field_value_from_list(product_ext['data']['products_attributes'], 'options_id')
 		# option_value_ids = duplicate_field_value_from_list(product_ext['data']['products_attributes'], 'options_values_id')
 		# option_ids_con = self.list_to_in_condition(product_option_ids)
@@ -496,16 +500,21 @@ class LeCartCustom(LeBasecart):
 		product_ext_rel_queries = {
 			'categories': {
 				'type': 'select',
-				'query': "SELECT * FROM  _DBPRF_categories WHERE categories_id IN " + categories_ids_con,
+				'query': "SELECT * FROM  _DBPRF_categories WHERE categories_id IN " + categories_ids,
 			},
 			'categories_description': {
 				'type': 'select',
-				'query': "SELECT * FROM  _DBPRF_categories_description WHERE categories_id IN " + categories_ids_con,
+				'query': "SELECT * FROM  _DBPRF_categories_description WHERE categories_id IN " + categories_ids,
 			},
 			'languages': {
 				'type': "select",
-				'query': "SELECT * FROM _DBPRF_languages WHERE languages_id IN " + languages_id,
+				'query': "SELECT * FROM _DBPRF_languages WHERE languages_id IN " + language_id,
 			},
+			'attribute': {
+				'type': "select",
+				'query': "SELECT * FROM _DBPRF_attribute WHERE attribute_id IN " + attribute_id,
+			},
+
 			# 'products_options_values': {
 			# 	'type': 'select',
 			# 	'query': "SELECT * FROM `_DBPRF_products_options_values` WHERE products_options_values_id IN " + option_value_ids_con,
@@ -810,6 +819,7 @@ class LeCartCustom(LeBasecart):
 		# if self._notice['config']['seo_301']:
 		# 	detect_seo = self.detect_seo()
 		# 	product_data['seo'] = getattr(self, 'products_' + detect_seo)(product, products_ext)
+		product_data['attributes'] = products_ext_data['attribute']
 		product_lang = self.construct_product_lang()
 		if product_lang:
 			product_lang['name'] = language_id['name']
@@ -1083,6 +1093,7 @@ class LeCartCustom(LeBasecart):
 				'type': 'select',
 				'query': "SELECT * FROM  _DBPRF_zones WHERE zone_code IN " + self.list_to_in_condition(state_ids)
 			}
+
 		}
 		orders_ext = self.get_connector_data(url_query, {'serialize': True, 'query': json.dumps(orders_ext_queries)})
 		if not orders_ext or orders_ext['result'] != 'success':
@@ -1237,7 +1248,6 @@ class LeCartCustom(LeBasecart):
 			order_item['price'] = order_product['final_price']
 			order_items.append(order_item)
 			order_data['items'] = order_items
-
 		# order_products = get_list_from_list_by_field(orders_ext['data']['order_items'], 'order_id', order['id'])
 		# # order_product_attributes = get_list_from_list_by_field(orders_ext['data']['orders_products_attributes'], 'orders_id', order['orders_id'])
 		# order_items = list()
