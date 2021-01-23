@@ -4610,7 +4610,27 @@ class LeCartWoocommerce(LeCartWordpress):
 					'meta_value': value,
 				}
 				self.import_data_connector(self.create_insert_query_connector('woocommerce_order_itemmeta', woo_order_itemmeta_kv), 'order')
-
+		if convert['shipping']['amount']:
+			woo_order_items_update = {
+				'order_item_name': 'Shipping',
+				'order_item_type': 'shipping',
+				'order_id': post_order_id,
+			}
+			woo_order_item_shipping_id = self.import_data_connector(self.create_insert_query_connector('woocommerce_order_items', woo_order_items_update))
+			woo_order_itemmeta_shipping = {
+				'method_id': '',
+				'instance_id': 0,
+				'cost': convert['shipping']['amount'],
+				'total_tax': 0,
+				'taxes': 'a:1:{s:5:"total";a:0:{}}',
+			}
+			for key, value in woo_order_itemmeta_shipping.items():
+				woo_order_itemmeta_shipping_value = {
+					'order_item_id': woo_order_item_shipping_id,
+					'meta_key': key,
+					'meta_value': value,
+				}
+				self.import_data_connector(self.create_insert_query_connector('woocommerce_order_itemmeta', woo_order_itemmeta_shipping_value))
 		return response_success(0)
 
 	def after_order_import(self, order_id, convert, order, orders_ext):
